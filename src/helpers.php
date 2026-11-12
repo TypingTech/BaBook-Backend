@@ -1,4 +1,9 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception as MailException;
+
+require_once __DIR__ . '/vendor/autoload.php';
+
 header('Content-Type: application/json; charset=utf-8');
 
 // Kirim respons JSON dengan format yang konsisten, lalu hentikan script
@@ -71,4 +76,30 @@ function require_auth(PDO $pdo): array
         json_response(401, false, 'Token tidak valid atau sudah kedaluwarsa');
     }
     return $user;
+}
+
+// Kirim email lewat SMTP (Mailpit saat development). Return true jika sukses
+function send_mail(string $to, string $subject, string $body): bool
+{
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = getenv('MAIL_HOST') ?: 'mailpit';
+        $mail->Port       = (int) (getenv('MAIL_PORT') ?: 1025);
+        $mail->SMTPAuth   = false;
+        $mail->SMTPSecure = false;
+        $mail->SMTPAutoTLS = false;
+        $mail->CharSet    = 'UTF-8';
+
+        $mail->setFrom(getenv('MAIL_FROM') ?: 'noreply@babook.local', 'BaBook');
+        $mail->addAddress($to);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+
+        $mail->send();
+        return true;
+    } catch (MailException $e) {
+        error_log('Gagal kirim email: ' . $mail->ErrorInfo);
+        return false;
+    }
 }
