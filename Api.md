@@ -197,7 +197,7 @@ Tulis token apa adanya setelah satu spasi, tanpa tanda `<` `>` dan tanpa tanda k
 }
 ```
 
-**Respons gagal**
+**Respons error**
 
 | Status | Pesan                                      | Tindakan di aplikasi                            |
 | ------ | ------------------------------------------ | ----------------------------------------------- |
