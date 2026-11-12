@@ -30,3 +30,45 @@ function get_json_input(): array
     }
     return $input;
 }
+
+// Buat token acak, simpan hash-nya, kembalikan token asli ke client
+function create_token(PDO $pdo, int $userId): string
+{
+    $ttlDays   = (int) (getenv('TOKEN_TTL_DAYS') ?: 7);
+    $token     = bin2hex(random_bytes(32));          // 64 karakter acak
+    $tokenHash = hash('sha256', $token);
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO api_tokens (user_id, token_hash, expires_at)
+         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))'
+    );
+    $stmt->execute([$userId, $tokenHash, $ttlDays]);
+
+    return $token;
+}
+
+// Ambil user dari header Authorization. Kalau token salah/kedaluwarsa -> 401
+function require_auth(PDO $pdo): array
+{
+    $header = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+
+    if (!preg_match('/^Bearer\s+(\S+)$/', $header, $m)) {
+        json_response(401, false, 'Token tidak ditemukan');
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT u.id, u.name, u.email
+         FROM api_tokens t
+         JOIN users u ON u.id = t.user_id
+         WHERE t.token_hash = ? AND t.expires_at > NOW()'
+    );
+    $stmt->execute([hash('sha256', $m[1])]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        json_response(401, false, 'Token tidak valid atau sudah kedaluwarsa');
+    }
+    return $user;
+}
